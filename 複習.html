@@ -785,7 +785,7 @@
     }
 
     function openImageLightbox(idx, urlsJson) {
-      _lbUrls = typeof urlsJson === 'string' ? JSON.parse(urlsJson) : [urlsJson];
+      _lbUrls = Array.isArray(urlsJson) ? urlsJson : (typeof urlsJson === 'string' ? JSON.parse(urlsJson) : [urlsJson]);
       _lbIdx  = Number(idx) || 0;
       _renderLightbox();
     }
