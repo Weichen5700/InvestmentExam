@@ -233,6 +233,38 @@ npx wrangler deploy
 > Worker 主程式位於 [worker/src/index.js](worker/src/index.js)。  
 > 圖片以 base64 存入 D1，不需要 R2，Cloudflare 免費方案即可完整使用。
 
+## D1 資料庫 Key 結構
+
+D1 有三張資料表，各自負責不同資料類型：
+
+### `sync_entries`（星號難度、已複習狀態）
+
+localStorage key 直接作為 D1 的 `key` 欄位：
+
+| 資料類型 | key 格式 | 範例 |
+|---------|----------|------|
+| 難度星等 | `difficulty_{className}_{sn}` | `difficulty_投資型第一科_001` |
+| 已複習 | `reviewed_{className}_{sn}` | `reviewed_投資型第一科_001` |
+
+### `question_notes` / `note_images`（筆記文字與附圖）
+
+以三欄聯合唯一識別每筆資料：
+
+| 欄位 | 說明 | 範例 |
+|------|------|------|
+| `source_key` | 資料來源檔案路徑 | `path:data/投資型保險/01_第一科.txt` |
+| `question_class` | 題目 class 欄位 | `投資型第一科` |
+| `question_sn` | 題號 | `001` |
+
+### 多考科共用同一資料庫
+
+**不需要為不同考科建立不同資料庫。** 由於每筆資料的 key 都包含 `className`（星號、複習狀態）或 `source_key` / `question_class`（筆記），不同考科的資料天然隔離，互不干擾。
+
+新增考科只需：
+1. 在 `data/` 下新增題庫資料夾與 `.txt` 檔
+2. 更新 `manifest.json` 加入新條目
+3. 其餘 Worker / D1 設定完全不用動
+
 ## 技術棧
 
 - HTML / CSS / JavaScript（純前端，無框架）
