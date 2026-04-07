@@ -1333,18 +1333,37 @@
     }
 
     function renderPics(picString, sn) {
-      let html = '';
+      const items = [];
       // 約定式自動尋圖：img/{category}/{file}/{sn}.jpg
-      if (sn) {
-        const autoPath = `${currentImgBase}${sn}.jpg`;
-        html += `<img src="${autoPath}" alt="" loading="lazy" onerror="this.style.display='none'" class="auto-pic">`;
-      }
+      if (sn) items.push({ src: `${currentImgBase}${sn}.jpg`, auto: true });
       // 明確指定的圖片（JSON pic 欄位，逗號分隔多張）
       if (picString) {
-        const urls = picString.split(',').map(u => u.trim()).filter(Boolean);
-        html += urls.map(u => `<img src="${u}" alt="圖片">`).join('');
+        picString.split(',').map(u => u.trim()).filter(Boolean)
+          .forEach(u => items.push({ src: u, auto: false }));
       }
-      return html;
+      if (items.length === 0) return '';
+
+      const allSrcs = JSON.stringify(items.map(i => i.src)).replace(/"/g, '&quot;');
+      const zoomSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="white" viewBox="0 0 16 16">
+            <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
+            <path d="M10.344 11.742c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1A6.538 6.538 0 0 1 10.344 11.742z"/>
+            <path d="M6.5 3a.5.5 0 0 1 .5.5V6h2.5a.5.5 0 0 1 0 1H7v2.5a.5.5 0 0 1-1 0V7H3.5a.5.5 0 0 1 0-1H6V3.5a.5.5 0 0 1 .5-.5z"/>
+          </svg>`;
+
+      return items.map((item, idx) => {
+        const onerrorAttr = item.auto
+          ? `onerror="this.closest('._pic_wrap').style.display='none'"`
+          : '';
+        return `<div class="_pic_wrap" style="position:relative; display:inline-block; cursor:zoom-in; margin:0.2rem 0.4rem 0.2rem 0; vertical-align:top;"
+            onclick="openImageLightbox(${idx}, '${allSrcs}')"
+            onmouseenter="this.querySelector('._zoom_icon').style.opacity=1"
+            onmouseleave="this.querySelector('._zoom_icon').style.opacity=0">
+          <img src="${item.src}" alt="圖片" loading="lazy" class="${item.auto ? 'auto-pic' : ''}" ${onerrorAttr}
+            style="max-width:100%; display:block;">
+          <div class="_zoom_icon" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+            background:rgba(0,0,0,0.32); opacity:0; transition:opacity 0.18s; pointer-events:none;">${zoomSvg}</div>
+        </div>`;
+      }).join('');
     }
 
     function prevQuestion() {
