@@ -2,6 +2,11 @@
 html { touch-action: manipulation; }
 body { letter-spacing: 0.02em; }
 
+/* 圖片放大鏡：手機（無 hover 能力的裝置）常駐顯示 */
+@media (hover: none) {
+  ._zoom_icon { opacity: 1 !important; }
+}
+
 /* 題目區塊 */
 .question-block {
   background-color: #ffffff;
