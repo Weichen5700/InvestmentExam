@@ -774,6 +774,16 @@
     let _lbUrls = [];
     let _lbIdx  = 0;
 
+    // 題目 pic 區塊用：動態收集可見圖片，避免 auto-path 失敗的空白項射入 lightbox
+    function openPicLightbox(el) {
+      const container = el.closest('.pic');
+      const wrappers = [...container.querySelectorAll('._pic_wrap')]
+        .filter(w => w.style.display !== 'none');
+      const urls = wrappers.map(w => w.querySelector('img').src);
+      const idx = Math.max(0, wrappers.indexOf(el));
+      openImageLightbox(idx, urls);
+    }
+
     function openImageLightbox(idx, urlsJson) {
       _lbUrls = typeof urlsJson === 'string' ? JSON.parse(urlsJson) : [urlsJson];
       _lbIdx  = Number(idx) || 0;
@@ -802,7 +812,28 @@
 
       const hasPrev = _lbIdx > 0;
       const hasNext = _lbIdx < _lbUrls.length - 1;
-      const counter = _lbUrls.length > 1 ? `<div style="position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.65);font-size:0.9rem;letter-spacing:0.05em;">${_lbIdx + 1} / ${_lbUrls.length}</div>` : '';
+      const multiImage = _lbUrls.length > 1;
+
+      // 底部導覽列（多張時才顯示，不蓋住圖片）
+      const bottomNav = multiImage ? `
+        <div onclick="event.stopPropagation()" style="
+          position:fixed; bottom:1rem; left:50%; transform:translateX(-50%);
+          display:flex; align-items:center; gap:0.8rem; z-index:10001;
+        ">
+          <button onclick="_lbNav(-1)" ${!hasPrev ? 'disabled' : ''} style="
+            background:rgba(255,255,255,${hasPrev ? '0.15' : '0.05'});backdrop-filter:blur(6px);
+            border:1px solid rgba(255,255,255,0.2);color:${hasPrev ? '#fff' : 'rgba(255,255,255,0.25)'};
+            font-size:1.5rem;line-height:1;padding:0.25rem 0.7rem;
+            border-radius:0.5rem;cursor:${hasPrev ? 'pointer' : 'default'};transition:background 0.15s;
+          ">&#8249;</button>
+          <span style="color:rgba(255,255,255,0.7);font-size:0.9rem;min-width:3rem;text-align:center;">${_lbIdx + 1} / ${_lbUrls.length}</span>
+          <button onclick="_lbNav(1)" ${!hasNext ? 'disabled' : ''} style="
+            background:rgba(255,255,255,${hasNext ? '0.15' : '0.05'});backdrop-filter:blur(6px);
+            border:1px solid rgba(255,255,255,0.2);color:${hasNext ? '#fff' : 'rgba(255,255,255,0.25)'};
+            font-size:1.5rem;line-height:1;padding:0.25rem 0.7rem;
+            border-radius:0.5rem;cursor:${hasNext ? 'pointer' : 'default'};transition:background 0.15s;
+          ">&#8250;</button>
+        </div>` : '';
 
       overlay.innerHTML = `
         <div onclick="event.stopPropagation()" style="
@@ -832,29 +863,7 @@
           onmouseenter="this.style.background='rgba(255,255,255,0.28)'"
           onmouseleave="this.style.background='rgba(255,255,255,0.15)'">✕</button>
 
-        <!-- 上一張 -->
-        ${hasPrev ? `<button onclick="event.stopPropagation();_lbNav(-1)"
-          style="position:fixed;left:1rem;top:50%;transform:translateY(-50%);
-          background:rgba(255,255,255,0.15);backdrop-filter:blur(6px);
-          border:1px solid rgba(255,255,255,0.2);color:#fff;
-          font-size:2rem;line-height:1;padding:0.3rem 0.7rem;
-          border-radius:0.5rem;cursor:pointer;z-index:10001;
-          transition:background 0.15s;"
-          onmouseenter="this.style.background='rgba(255,255,255,0.28)'"
-          onmouseleave="this.style.background='rgba(255,255,255,0.15)'">&#8249;</button>` : ''}
-
-        <!-- 下一張 -->
-        ${hasNext ? `<button onclick="event.stopPropagation();_lbNav(1)"
-          style="position:fixed;right:1rem;top:50%;transform:translateY(-50%);
-          background:rgba(255,255,255,0.15);backdrop-filter:blur(6px);
-          border:1px solid rgba(255,255,255,0.2);color:#fff;
-          font-size:2rem;line-height:1;padding:0.3rem 0.7rem;
-          border-radius:0.5rem;cursor:pointer;z-index:10001;
-          transition:background 0.15s;"
-          onmouseenter="this.style.background='rgba(255,255,255,0.28)'"
-          onmouseleave="this.style.background='rgba(255,255,255,0.15)'">&#8250;</button>` : ''}
-
-        ${counter}
+        ${bottomNav}
       `;
     }
 
@@ -1355,7 +1364,7 @@
           ? `onerror="this.closest('._pic_wrap').style.display='none'"`
           : '';
         return `<div class="_pic_wrap" style="position:relative; display:inline-block; cursor:zoom-in; margin:0.2rem 0.4rem 0.2rem 0; vertical-align:top;"
-            onclick="openImageLightbox(${idx}, '${allSrcs}')"
+            onclick="openPicLightbox(this)"
             onmouseenter="this.querySelector('._zoom_icon').style.opacity=1"
             onmouseleave="this.querySelector('._zoom_icon').style.opacity=0">
           <img src="${item.src}" alt="圖片" loading="lazy" class="${item.auto ? 'auto-pic' : ''}" ${onerrorAttr}
