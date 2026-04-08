@@ -297,6 +297,44 @@ body.dark-mode h1 { color: #93c5fd; }
 .copy-actions { position: fixed; bottom: 2.5rem; right: .625rem; display: flex; flex-direction: row; gap: .4rem; z-index: 1000; }
 .copy-actions .btn { padding: 0.3rem 0.5rem; font-size: 0.8rem; }
 
+/* ===== 進度統計面板 ===== */
+#progressOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 2000;
+}
+#progressOverlay.show { display: block; }
+
+#progressPanel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 1rem;
+  border: 2px solid #cbd5e1;
+  box-shadow: 0 1rem 3rem rgba(0,0,0,.18);
+  padding: 1.5rem;
+  z-index: 2001;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  overflow-y: auto;
+  display: none;
+}
+#progressPanel.show { display: block; }
+
+.dark-mode #progressPanel {
+  background-color: #1a2744;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+.dark-mode #progressOverlay { background: rgba(0,0,0,.65); }
+.dark-mode #progressPanel h6 { color: #93c5fd !important; }
+.dark-mode #progress-summary { color: #cbd5e1; }
+
 /* ===== 手機版 ===== */
 @media (max-width: 576px) {
   .difficulty-stars { padding: 2px; }

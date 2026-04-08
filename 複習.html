@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="css/common.css">
   <link rel="stylesheet" href="css/review.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script src="js/cloud-sync-config.js"></script>
   <script src="js/cloud-sync.js"></script>
   <script src="js/cloud-notes.js"></script>
@@ -54,6 +55,7 @@
         <span id="filter-download-container" style="margin-left: 10px;"></span>
         <span style="margin-left: auto; display: flex; gap: 0.35rem; align-items: center;">
           <button class="btn btn-warning" type="button" onclick="toggleCurrentNote()" style="padding: 0.3rem 0.7rem; font-size: 0.85rem;">筆記</button>
+          <button class="btn btn-success" type="button" onclick="toggleProgressPanel()" style="padding: 0.3rem 0.7rem; font-size: 0.85rem;">進度</button>
           <button class="btn btn-info" type="button" onclick="toggleCloudSyncPanel()" style="padding: 0.3rem 0.7rem; font-size: 0.85rem;">
             雲端設定
           </button>
@@ -168,6 +170,26 @@
         <button class="btn btn-secondary" onclick="toggleCloudSyncPanel(false)" style="padding:0.25rem 0.75rem;">✕</button>
       </div>
       <div id="cloudSyncContainer"></div>
+    </div>
+
+    <!-- ===== 進度統計面板 ===== -->
+    <div id="progressOverlay" onclick="toggleProgressPanel(false)"></div>
+    <div id="progressPanel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+        <strong style="font-size:1.2rem;">📊 複習進度統計</strong>
+        <button class="btn btn-secondary" onclick="toggleProgressPanel(false)" style="padding:0.25rem 0.75rem;">✕</button>
+      </div>
+      <div id="progressContent">
+        <div id="progress-loading" style="text-align:center;padding:2rem;color:#64748b;">載入中…</div>
+        <div id="progress-charts-container" style="display:none;">
+          <h6 style="font-weight:700;color:#374151;margin-bottom:0.5rem;">複習狀態（依類別）</h6>
+          <canvas id="progress-chart-1"></canvas>
+          <hr style="margin:1rem 0;">
+          <h6 style="font-weight:700;color:#374151;margin-bottom:0.5rem;">星星數量（依類別）</h6>
+          <canvas id="progress-chart-2"></canvas>
+          <div id="progress-summary" style="margin-top:1rem;font-size:0.9rem;line-height:1.8;"></div>
+        </div>
+      </div>
     </div>
 
     <div class="row">
@@ -2089,6 +2111,146 @@ function ensureReviewLightSlot(){
     const incorrect = document.getElementById('incorrect-count');
     wrap.insertBefore(div, incorrect || null);
   }
+}
+
+// ===== 複習進度統計圖表 =====
+let _progressCharts = [];
+
+function toggleProgressPanel(force) {
+  const overlay = document.getElementById('progressOverlay');
+  const panel   = document.getElementById('progressPanel');
+  const nextVisible = typeof force === 'boolean' ? force : !overlay.classList.contains('show');
+  if (nextVisible) {
+    setPanelOpen('settingsOverlay',   'settingsPanel',   false);
+    setPanelOpen('cloudSyncOverlay',  'cloudSyncPanel',  false);
+    overlay.classList.add('show');
+    panel.classList.add('show');
+    _renderProgressPanel();
+  } else {
+    overlay.classList.remove('show');
+    panel.classList.remove('show');
+  }
+}
+
+async function _renderProgressPanel() {
+  const loading         = document.getElementById('progress-loading');
+  const chartsContainer = document.getElementById('progress-charts-container');
+  loading.style.display = 'block';
+  loading.textContent   = '載入中…';
+  chartsContainer.style.display = 'none';
+
+  _progressCharts.forEach(c => c.destroy());
+  _progressCharts = [];
+
+  const stats = await _loadAllQuestionStats();
+  loading.style.display = 'none';
+
+  if (!stats || stats.length === 0) {
+    loading.textContent   = '無法載入題庫資料，請確認已部署在伺服器上。';
+    loading.style.display = 'block';
+    return;
+  }
+
+  chartsContainer.style.display = 'block';
+
+  const isDark      = document.body.classList.contains('dark-mode');
+  const legendColor = isDark ? '#cbd5e1' : '#374151';
+  const tickColor   = isDark ? '#94a3b8' : '#374151';
+
+  const baseChartOpts = (maxVal) => ({
+    indexAxis: 'y',
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: legendColor, padding: 14, boxWidth: 14 } },
+      tooltip: { mode: 'index' }
+    },
+    scales: {
+      x: { stacked: true, max: maxVal, ticks: { color: tickColor }, grid: { color: isDark ? '#334155' : '#e2e8f0' } },
+      y: { stacked: true, ticks: { color: tickColor }, grid: { color: isDark ? '#334155' : '#e2e8f0' } }
+    }
+  });
+
+  // Chart 1：複習狀態
+  const ctx1     = document.getElementById('progress-chart-1').getContext('2d');
+  const maxTotal = Math.max(...stats.map(s => s.total), 1);
+  _progressCharts.push(new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: stats.map(s => s.label),
+      datasets: [
+        { label: '未複習',        data: stats.map(s => s.notReviewed),      backgroundColor: '#e53935' },
+        { label: '已複習（無星）', data: stats.map(s => s.reviewedNoStar),   backgroundColor: '#43a047' },
+        { label: '已複習（有星）', data: stats.map(s => s.reviewedWithStar), backgroundColor: '#fdd835' },
+      ]
+    },
+    options: baseChartOpts(maxTotal)
+  }));
+
+  // Chart 2：星星分布
+  const ctx2         = document.getElementById('progress-chart-2').getContext('2d');
+  const maxStarTotal = Math.max(...stats.map(s => s.star1 + s.star2 + s.star3), 1);
+  _progressCharts.push(new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: stats.map(s => s.label),
+      datasets: [
+        { label: '★ 1顆',   data: stats.map(s => s.star1), backgroundColor: '#ffc107' },
+        { label: '★★ 2顆',  data: stats.map(s => s.star2), backgroundColor: '#fb8c00' },
+        { label: '★★★ 3顆', data: stats.map(s => s.star3), backgroundColor: '#e53935' },
+      ]
+    },
+    options: baseChartOpts(maxStarTotal)
+  }));
+
+  // 文字摘要
+  const summary = document.getElementById('progress-summary');
+  summary.innerHTML = stats.map(s => {
+    const reviewed     = s.reviewedNoStar + s.reviewedWithStar;
+    const pct          = s.total > 0 ? Math.round(reviewed / s.total * 100) : 0;
+    const totalStarred = s.star1 + s.star2 + s.star3;
+    return `<div style="background:${isDark?'#1e3553':'#f8fafc'};border:1px solid ${isDark?'#334155':'#e2e8f0'};border-radius:0.5rem;padding:0.6rem 0.9rem;margin-bottom:0.5rem;">
+      <strong>${s.label}</strong>（共 ${s.total} 題）<br>
+      已複習 <strong>${reviewed}</strong>（${pct}%）｜未複習 <strong>${s.notReviewed}</strong><br>
+      有星共 <strong>${totalStarred}</strong> 題 ── ★${s.star1}&nbsp;&nbsp;★★${s.star2}&nbsp;&nbsp;★★★${s.star3}
+    </div>`;
+  }).join('');
+}
+
+async function _loadAllQuestionStats() {
+  const baseUrl = getBaseUrl();
+  let manifest;
+  try {
+    const r = await fetch(baseUrl + 'data/manifest.json', { cache: 'no-store' });
+    manifest = await r.json();
+  } catch { return null; }
+
+  const stats = [];
+  for (const category of manifest) {
+    for (const fileInfo of category.files) {
+      const filePath = 'data/' + category.category + '/' + fileInfo.file;
+      try {
+        const r    = await fetch(baseUrl + filePath, { cache: 'no-store' });
+        const text = await r.text();
+        const qs   = text.split('\n').filter(Boolean).map(line => JSON.parse(line));
+
+        let notReviewed = 0, reviewedNoStar = 0, reviewedWithStar = 0;
+        let star1 = 0, star2 = 0, star3 = 0;
+        qs.forEach(q => {
+          const sn       = q.sn.toString().padStart(3, '0');
+          const reviewed = localStorage.getItem(`reviewed_${q.class}_${sn}`) === '1';
+          const stars    = parseInt(localStorage.getItem(`difficulty_${q.class}_${sn}`)) || 0;
+          if (!reviewed)        notReviewed++;
+          else if (stars > 0)   reviewedWithStar++;
+          else                  reviewedNoStar++;
+          if (stars === 1) star1++;
+          if (stars === 2) star2++;
+          if (stars === 3) star3++;
+        });
+        stats.push({ label: fileInfo.label, total: qs.length, notReviewed, reviewedNoStar, reviewedWithStar, star1, star2, star3 });
+      } catch (e) { console.error('無法載入統計資料:', filePath, e); }
+    }
+  }
+  return stats;
 }
 
 // 依狀態渲染燈號
