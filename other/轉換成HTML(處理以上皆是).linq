@@ -65,18 +65,21 @@ public class Program
 
     public static void Main(string[] args)
     {
-        // === 請依你的實際路徑調整 ===
-        string filePath = @"C:\Users\zx304\OneDrive\桌面\領組\20251109\LeaderExamination-main\LeaderExamination-main\uploadfile.txt";
-        string outPath  = @"C:\Users\zx304\OneDrive\桌面\領組\20251109\LeaderExamination-main\LeaderExamination-main\output.html";
+        // === 讀取 data 目錄下所有 .txt（包含子目錄），依檔名排序 ===
+        string dataDir = @"C:\Users\zx304\OneDrive\文件\codex\20260331_證照考試的工具3\data";
+        string outPath  = @"C:\Users\zx304\OneDrive\文件\codex\20260331_證照考試的工具3\output.html";
 
-        if (!File.Exists(filePath))
+        var inputFiles = Directory.GetFiles(dataDir, "*.txt", SearchOption.AllDirectories)
+                            .OrderBy(f => f)
+                            .ToList();
+
+        if (inputFiles.Count == 0)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("找不到輸入檔：\n" + filePath);
+            Console.WriteLine("找不到任何 .txt 輸入檔：\n" + dataDir);
             Console.ResetColor();
             return;
         }
-        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
 
         // 保序：類別首次出現順序、類別內題目按讀入順序
         var questionsByClass = new Dictionary<string, List<Question>>(StringComparer.OrdinalIgnoreCase);
@@ -84,8 +87,10 @@ public class Program
 
         int totalLines = 0, parsedOk = 0, badLines = 0;
 
-        foreach (var line in File.ReadLines(filePath, Encoding.UTF8))
+        foreach (var inputFile in inputFiles)
         {
+          foreach (var line in File.ReadLines(inputFile, Encoding.UTF8))
+          {
             totalLines++;
             if (string.IsNullOrWhiteSpace(line)) continue;
 
@@ -110,7 +115,8 @@ public class Program
             {
                 badLines++;
             }
-        }
+          } // end foreach line
+        } // end foreach file
 
         var html = new StringBuilder();
 
@@ -144,8 +150,42 @@ public class Program
 
   <style>
     html,body{ background:#0f172a; }
+    html.dark,html.dark body{ background:#f1f5f9; }
     .card { transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
     .sticky-shadow { box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+
+    /* 交錯行色 */
+    .card-odd  { background:rgba(30,41,59,.78); }
+    .card-even { background:rgba(15,23,42,.90); }
+    .dark .card-odd  { background:#ffffff; }
+    .dark .card-even { background:#f8fafc; }
+
+    /* 按鈕點擊回饋 */
+    .btn { transition:transform .1s ease,opacity .1s ease; }
+    .btn:active { transform:scale(.94); opacity:.78; }
+
+    /* Toast 提示 */
+    #toast {
+      position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(1rem);
+      z-index:9999; padding:.55rem 1.1rem; border-radius:.75rem;
+      background:rgba(30,41,59,.95); color:#e2e8f0; font-size:.82rem; white-space:nowrap;
+      box-shadow:0 4px 16px rgba(0,0,0,.4); pointer-events:none;
+      opacity:0; transition: opacity .25s ease, transform .25s ease;
+    }
+    #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .dark #toast { background:rgba(241,245,249,.95); color:#1e293b; }
+
+    /* 選項切換模式 */
+    .opts-block { display:none; }
+    .ans-block  { display:block; }
+    .supp-ctrl  { display:block; }
+    body.opts-mode .opts-block { display:block; }
+    body.opts-mode .ans-block  { display:none;  }
+    body.opts-mode .supp-ctrl  { display:none;  }
+
+    /* 顯示選項按鈕啟用外框 */
+    #btnToggleOpts.is-active { outline:2px solid rgba(167,139,250,.75); outline-offset:2px; }
+
     @media print {
       html,body{ background:#fff; }
       .no-print{ display:none !important; }
@@ -203,11 +243,12 @@ public class Program
           </div>
         </div>
         <div class=""flex flex-wrap gap-2 items-center"">
-          <button id=""btnExpand""   class=""px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm"">展開全部</button>
-          <button id=""btnCollapse"" class=""px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm dark:bg-slate-200 dark:text-slate-800"">收合全部</button>
-          <button id=""printBtn""   class=""px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm"">列印</button>
-          <button id=""modeToggle"" class=""px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-sm"">🌙 夜間模式</button>
-          <button id=""backToClass"" class=""px-3 py-1.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm"" title=""回到目前類別頂部"">↥ 回到類別</button>
+          <button id=""btnToggleOpts"" class=""btn px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm"">📋 顯示選項</button>
+          <button id=""btnExpand""   class=""btn px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm"">展開全部</button>
+          <button id=""btnCollapse"" class=""btn px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm dark:bg-slate-200 dark:text-slate-800"">收合全部</button>
+          <button id=""printBtn""   class=""btn px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm"">列印</button>
+          <button id=""modeToggle"" class=""btn px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-sm"">🌙 夜間模式</button>
+          <button id=""backToClass"" class=""btn px-3 py-1.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-sm"" title=""捲到目前類別的頂猫"">↥ 回到類別頂端</button>
         </div>
       </div>
       <!-- 類別快速導覽（自動生成） -->
@@ -231,8 +272,9 @@ public class Program
       <h2 class=""text-xl md:text-2xl font-bold text-brand-100 dark:text-brand-600 mb-3"">類別：{displayName}</h2>
       <div class=""grid grid-cols-1 gap-3"">");
 
-            foreach (var q in list)
+            for (int qi = 0; qi < list.Count; qi++)
             {
+                var q = list[qi];
                 var qn    = E(q.Sn ?? "");
                 var qtext = E(q.question ?? "");
                 bool hasOptions = q.Options != null && q.Options.Count > 0;
@@ -244,8 +286,9 @@ public class Program
                     lastIsAllOfAbove = IsAllOfAbove(last?.OptionText);
                 }
 
-                html.Append(@"
-        <article class=""card rounded-2xl bg-slate-800/70 ring-1 ring-white/5 shadow-xl p-4 md:p-5 dark:bg-white dark:ring-slate-200"">");
+                var rowCls = (qi % 2 == 0) ? "card-even" : "card-odd";
+                html.Append($@"
+        <article class=""card {rowCls} rounded-2xl ring-1 ring-white/5 dark:ring-slate-200 shadow-xl p-4 md:p-5"">");
 
                 // 類別抬頭（你要的 type 效果）
                 html.Append($@"
@@ -263,6 +306,8 @@ public class Program
           </div>
           <p class=""mt-2 text-sm md:text-base text-slate-100 dark:text-slate-900"">" + qtext + @"</p>");
 
+                // 答案區（預設顯示）
+                html.Append(@"<div class=""ans-block mt-2 text-sm md:text-base"">");
                 if (hasOptions)
                 {
                     foreach (var opt in q.Options)
@@ -270,20 +315,47 @@ public class Program
                         if (opt?.Answer == true)
                         {
                             var optText = E(opt.OptionText ?? "");
-                            html.Append($@"<div class=""mt-1 text-sm md:text-base"">
-              <span class=""font-bold text-rose-400 dark:text-rose-600"">● {optText}</span>
+                            html.Append($@"<span class=""font-bold text-rose-400 dark:text-rose-600"">● {optText}</span>");
+                        }
+                    }
+                }
+                html.Append(@"</div>");
+
+                // 選項區（opts-mode 下顯示）
+                html.Append(@"<div class=""opts-block mt-2 space-y-1 text-sm"">");
+                if (hasOptions)
+                {
+                    char[] optLabels = new[]{ 'A','B','C','D','E','F' };
+                    for (int oi = 0; oi < q.Options.Count; oi++)
+                    {
+                        var opt2  = q.Options[oi];
+                        string lbl    = oi < optLabels.Length ? $"({optLabels[oi]})" : $"({oi+1})";
+                        string optTxt = E(opt2?.OptionText ?? "");
+                        if (opt2?.Answer == true)
+                        {
+                            html.Append($@"<div class=""flex items-start gap-2 px-2 py-1.5 rounded-md bg-rose-500/15 ring-1 ring-rose-400/30 text-rose-300 dark:text-rose-600 font-semibold"">
+              <span class=""shrink-0 w-7 text-right text-xs font-mono mt-0.5"">{lbl}</span>
+              <span>● {optTxt}</span>
+            </div>");
+                        }
+                        else
+                        {
+                            html.Append($@"<div class=""flex items-start gap-2 px-2 py-1.5 rounded-md text-slate-300 dark:text-slate-500"">
+              <span class=""shrink-0 w-7 text-right text-xs font-mono mt-0.5"">{lbl}</span>
+              <span>{optTxt}</span>
             </div>");
                         }
                     }
                 }
+                html.Append(@"</div>");
 
                 if (hasOptions && lastIsAllOfAbove)
                 {
                     var listId = $"supp-{Guid.NewGuid():N}";
                     html.Append($@"
-          <div class=""mt-3"">
-            <button data-target=""#{listId}"" class=""toggle-supp px-2 py-1 rounded-md bg-brand-600 hover:bg-brand-500 text-white text-xs"">顯示/收合 其他選項</button>
-            <ul id=""{listId}"" class=""mt-2 hidden list-disc list-inside space-y-1 text-slate-200 dark:text-slate-800"">");
+          <div class=""supp-ctrl mt-3"">
+            <button data-target=""#{listId}"" class=""btn toggle-supp px-2 py-1.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white text-xs"">顯示／收合 其他選項</button>
+            <ul id=""{listId}"" class=""supp-list mt-2 hidden list-disc list-inside space-y-1 text-slate-200 dark:text-slate-800"">");
                     for (int i = 0; i < q.Options.Count - 1; i++)
                     {
                         var txt = E(q.Options[i]?.OptionText ?? "");
@@ -309,6 +381,9 @@ public class Program
       匯出完成 · 單檔純 HTML · Tailwind CDN + Google Fonts
     </footer>
   </div>
+
+  <!-- Toast 元件 -->
+  <div id=""toast""></div>
 
   <!-- 右下角回到頁頂 -->
   <button id=""backToTop""
@@ -344,22 +419,47 @@ public class Program
     // 列印
     document.getElementById('printBtn')?.addEventListener('click', () => window.print());
 
+    // Toast 小提示
+    const toastEl = document.getElementById('toast');
+    let toastTimer = null;
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 2500);
+    }
+
     // 展開/收合「以上皆是」補列
     document.querySelectorAll('.toggle-supp').forEach(btn=>{
-      btn.addEventListener('click', e=>{
-        const sel = btn.getAttribute('data-target');
-        const ul = document.querySelector(sel);
+      btn.addEventListener('click', ()=>{
+        const ul = document.querySelector(btn.getAttribute('data-target'));
         if(!ul) return;
-        ul.classList.toggle('hidden');
+        const opened = ul.classList.toggle('hidden') === false;
+        btn.textContent = opened ? '收合 其他選項' : '顯示／收合 其他選項';
+        btn.classList.toggle('bg-brand-800', opened);
+        btn.classList.toggle('bg-brand-600', !opened);
       });
     });
     const expand = document.getElementById('btnExpand');
     const collapse = document.getElementById('btnCollapse');
+    const suppCount = document.querySelectorAll('.supp-ctrl').length;
     expand?.addEventListener('click', ()=> {
-      document.querySelectorAll('ul[id^=""supp-""]').forEach(ul=>ul.classList.remove('hidden'));
+      document.querySelectorAll('.supp-list').forEach(ul=>ul.classList.remove('hidden'));
+      document.querySelectorAll('.toggle-supp').forEach(b=>{ b.textContent='收合 其他選項'; b.classList.add('bg-brand-800'); b.classList.remove('bg-brand-600'); });
+      showToast(`已展開全部 ${suppCount} 個「以上皆是」補列選項`);
     });
     collapse?.addEventListener('click', ()=> {
-      document.querySelectorAll('ul[id^=""supp-""]').forEach(ul=>ul.classList.add('hidden'));
+      document.querySelectorAll('.supp-list').forEach(ul=>ul.classList.add('hidden'));
+      document.querySelectorAll('.toggle-supp').forEach(b=>{ b.textContent='顯示／收合 其他選項'; b.classList.remove('bg-brand-800'); b.classList.add('bg-brand-600'); });
+      showToast(`已收合全部 ${suppCount} 個「以上皆是」補列選項`);
+    });
+
+    // 顯示／隱藏全部選項
+    const toggleOptsBtn = document.getElementById('btnToggleOpts');
+    toggleOptsBtn?.addEventListener('click', ()=>{
+      const isOpts = document.body.classList.toggle('opts-mode');
+      toggleOptsBtn.textContent = isOpts ? '🔖 隱藏選項' : '📋 顯示選項';
+      toggleOptsBtn.classList.toggle('is-active', isOpts);
     });
 
     // 生成 Class 導覽（按 data-class）
@@ -369,7 +469,7 @@ public class Program
     classAnchors.forEach(c => {
       const btn = document.createElement('button');
       btn.textContent = c.name;
-      btn.className = 'px-2 py-1 rounded-md text-sm bg-slate-600 hover:bg-slate-500 text-white dark:bg-slate-200 dark:text-slate-800';
+      btn.className = 'btn px-2 py-1 rounded-md text-sm bg-slate-600 hover:bg-slate-500 text-white dark:bg-slate-200 dark:text-slate-800';
       btn.addEventListener('click', ()=> {
         document.getElementById(c.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
